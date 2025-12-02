@@ -4,8 +4,12 @@
 #include <windows.h>
 #include <math.h>
 
-#define WIDTH 100
-#define HEIGHT 42
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+#define WIDTH 80
+#define HEIGHT 40
 #define ON (int)'0'
 #define OFF (int)' '
 #define ESC "\x1b"
@@ -44,6 +48,7 @@ void clearGrid(){
             grid[i][j] = OFF;
         }
     }
+    grid[HEIGHT/2][WIDTH/2] = ON;
 }
 void bresLine(vec2 a, vec2 b){
     int dx = abs(b.x - a.x);
@@ -75,21 +80,23 @@ void rotatePoint(vec2* p, vec2 o){
 
     double nx, ny;
 
-    nx = (x-x2)*cos(1) - (y-y2)*sin(1)+x2;
-    ny = (x-x2)*sin(1) + (y-y2)*cos(1)+x2;
+    nx = x2-(y-y2);
+    ny = (x-x2)+y2;
 
-    (*p).x = (int)(nx+0.5);
-    (*p).y = (int)(ny+0.5);
+    (*p).x = (int)(nx);
+    (*p).y = (int)(ny);
 }
 
 int main(){
     printf(ESC "[2J");
     hide_cursor();
 
-    vec2 a = {10,5}, b = {21, 6}, c = {12, 16};
-    vec2 center = {HEIGHT/2,WIDTH/2};
+    ///vec2 a = {20,15}, b = {31, 16}, c = {22, 26};
+    vec2 a = {45,15}, b = {55, 25}, c = {52, 35};
+    vec2 center = {40,20};
 
     int pressed = 1;
+    vec2* selected = &a;
     while (1){
         pressed = 1;
         for (int c = 0; c < 256; c++) {
@@ -113,9 +120,24 @@ int main(){
             rotatePoint(&a, center);
             rotatePoint(&b, center);
             rotatePoint(&c, center);
+            
         }
-
-
+        if (pressed == '1')selected = &a;
+        if (pressed == '2')selected = &b;
+        if (pressed == '3')selected = &c;
+        if (pressed == 37){
+            (*selected).x--;
+        }
+        if (pressed == 38){
+            (*selected).y--; 
+        }
+        if (pressed == 39){
+            (*selected).x++;
+        }
+        if (pressed == 40){
+            (*selected).y++;
+        }
+        printf("[(%d, %d), (%d ,%d) ,(%d ,%d)] ", a.x, a.y, b.x, b.y, c.x, c.y);
         clearGrid();
         bresLine(a, b);
         bresLine(b, c);

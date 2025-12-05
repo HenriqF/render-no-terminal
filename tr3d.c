@@ -13,10 +13,14 @@ typedef struct{
     int z;
 } vec3;
 
-
+int cols;
+int rows;
 
 int foco = 20;
 vec3 camera = {0,0,0};
+double camyaw = 0;
+double campitch = 0;
+
 vec3 pontos[MAXPOINTS];
 int qtdPontos = 0;
 
@@ -40,7 +44,7 @@ void hide_cursor() {
 }
 
 void plotPoint(int x, int y){
-    if (x < 0 || y < 0){
+    if (x < 0 || y < 0 || x>=cols || y >=rows){
         return;
     }
     printf("\x1b[%d;%dH%c", y, x, 'o');
@@ -50,11 +54,28 @@ vec3 get3dPointProj(int x, int y, int z){
     vec3 new;
     int newx, newy;
     if (z != camera.z){
-        newx = ((x - camera.x)*(camera.z - foco))/(z-camera.z) + camera.x;
-        newy = ((y - camera.y)*(camera.z - foco))/(z-camera.z) + camera.y;
+        double dx = (x - camera.x), dy = (y - camera.y), dz = (z - camera.z);
+
+        double cosy = cos(camyaw), siny = sin(camyaw), cosp = cos(campitch), sinp = sin(campitch);
+        double rotYawX = dx*cosy + dz*siny;
+        double rotYawZ = -dx*siny + dz*cosy;
+        double rotPitY =  dy*cosp - rotYawZ*sinp;
+        double rotPitZ = dy*sinp + rotYawZ*cosp;
+
+        dx = rotYawX;
+        dy = rotPitY;
+        dz = rotPitZ;
+        if (dz >= 0){
+            newx = cols+1, newy = rows+1, new.z = z;
+            return new;
+        }
+
+        double p = (double)(camera.z - foco)/dz;
+        newx = dx*p + camera.x;
+        newy = dy*p + camera.y;
     }
     else{
-        newx = camera.x, newy = camera.y;
+        newx = cols+1, newy = rows+1;
     }
     
     new.x = newx, new.y = newy, new.z = z;
@@ -82,6 +103,7 @@ void bresLine(vec3 a, vec3 b){
 void render3dLine(vec3 a, vec3 b){
     vec3 newa = get3dPointProj(a.x, a.y, a.z);
     vec3 newb = get3dPointProj(b.x, b.y, b.z);
+
     bresLine(newa, newb);
 }
 void render3dCube(vec3 a, vec3 b){
@@ -107,9 +129,6 @@ void render3dCube(vec3 a, vec3 b){
     bresLine(B, E);
     bresLine(E, C);
     bresLine(C, D);
-
-    bresLine(A, B);
-    bresLine(H, E);
 }
 
 void render3dPontos(){
@@ -129,18 +148,14 @@ void turnPointsIntoCubes(){
     }
 }
 
-void novoPonto(){
-    printf(ESC "[2J");
-    int x, y, z;
-    printf("\nCoordenadas do novo ponto: \n");
-    scanf(" %d %d %d", &x, &y, &z);
-    vec3 np = (vec3){x, y, z};
-    if (qtdPontos >= MAXPOINTS){
-        printf("sem esopaço.");
-        return;
+void novoCubo(int x, int y, int z){
+    if (qtdPontos < MAXPOINTS){
+        vec3 p1 = {x, y, z};
+        vec3 p2 = {x+10, y+10, z+10};
+        pontos[qtdPontos] = p1;
+        pontos[qtdPontos+1] = p2;
+        qtdPontos+=2;
     }
-    pontos[qtdPontos] = np;
-    qtdPontos++;
 }
 
 int main(){
@@ -149,15 +164,17 @@ int main(){
     printf(ESC "[2J");
     hide_cursor();
 
-    pontos[0] = (vec3){20, 20, -40};
-    pontos[1] = (vec3){10, 10, -30};
-    qtdPontos = 2;
+
+    for(int i = 0; i < 100; i+=10){
+        novoCubo(i,10,-30);
+    }
+    
 
     int pressed = 1;
     while(1){
         GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
-        int cols = csbi.srWindow.Right - csbi.srWindow.Left + 1;
-        int rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+        cols = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+        rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
         camera.x = cols/2;
         camera.y = rows/2;
 
@@ -174,13 +191,18 @@ int main(){
         if (pressed == 40)transformPontos('y', 1);
         if (pressed == 'W')transformPontos('z', 1);
         if (pressed == 'S')transformPontos('z', -1);
-        if (pressed == 'N')novoPonto();
+        if (pressed == 'Y')campitch+= 0.01;
+        if (pressed == 'H')campitch-= 0.01;
+        if (pressed == 'G')camyaw+= 0.01;
+        if (pressed == 'J')camyaw-= 0.01;
 
 
         
         turnPointsIntoCubes();
-        Sleep(5);
-        printf(ESC "[2J");
+        for(int i = 0; i<rows*2;i++){
+            printf("\n");
+        }
+    
     }
 
     return 0;
